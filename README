@@ -1,0 +1,9 @@
+modalbox_confirm Plugin
+=======================
+
+modalbox_confirm Plugin hooks into the default rails link_to helpers to implement ModalBox (a javascript message display library) when using a :confirm message
+
+ModalBox website: http://www.wildbit.com/labs/modalbox/
+
+
+Copyright (c) 2008 Chris Cherry (ctcherry@gmail.com), released under the MIT license
