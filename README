@@ -5,5 +5,22 @@ modalbox_confirm Plugin hooks into the default rails link_to helpers to implemen
 
 ModalBox website: http://www.wildbit.com/labs/modalbox/
 
+INSTALL
+=======
+
+- Install this plugin
+$ ruby script/plugin install git://github.com/seriph/modalbox_confirm.git
+
+- Install the modalbox library
+$ ruby script/generate modalbox_install
+
+USAGE
+=====
+
+- On pages where you use confirm messages make sure you are using <%= javascript_include_tag :defaults %> 
+
+- Any :confirm message you use is now replaced with the ModalBox
+
+
 
 Copyright (c) 2008 Chris Cherry (ctcherry@gmail.com), released under the MIT license
