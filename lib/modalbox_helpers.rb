@@ -34,3 +34,37 @@ module ActionView::Helpers::UrlHelper
 	alias_method_chain :convert_options_to_javascript!, :modalbox
 	
 end
+
+module ActionView::Helpers::PrototypeHelper
+	
+	def remote_function_with_modalbox(options)
+		javascript_options = options_for_ajax(options)
+
+		update = ''
+		if options[:update] && options[:update].is_a?(Hash)
+			update  = []
+			update << "success:'#{options[:update][:success]}'" if options[:update][:success]
+			update << "failure:'#{options[:update][:failure]}'" if options[:update][:failure]
+			update  = '{' + update.join(',') + '}'
+		elsif options[:update]
+			update << "'#{options[:update]}'"
+		end
+
+		function = update.empty? ? "new Ajax.Request(" : "new Ajax.Updater(#{update}, "
+
+		url_options = options[:url]
+		url_options = url_options.merge(:escape => false) if url_options.is_a?(Hash)
+		function << "'#{url_for(url_options)}'"
+		function << ", #{javascript_options})"
+
+		function = "#{options[:before]}; #{function}" if options[:before]
+		function = "#{function}; #{options[:after]}"  if options[:after]
+		function = "if (#{options[:condition]}) { #{function}; }" if options[:condition]
+		function = "Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(options[:confirm])}</p> <a id='MB_confirm_yes' href='#' onclick=\\\"Modalbox.hide({afterHide: function() {#{function}}});\\\">Yes</a> or <a href='#' onclick='Modalbox.hide()' id='MB_confirm_no'>No</a></div>\", {title: (this.title == '' ? 'Confirm' : this.title), width: 300, autoFocusing: false})" if options[:confirm]
+
+		return function
+	end
+
+	alias_method_chain :remote_function, :modalbox
+	
+end
