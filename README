@@ -17,7 +17,7 @@ $ ruby script/generate modalbox_install
 USAGE
 =====
 
-- On pages where you use confirm messages make sure you are using <%= javascript_include_tag :defaults %> 
+- On pages where you use confirm messages make sure you are using <%= javascript_include_tag :defaults %> and <%= stylesheet_link_tag 'modalbox.css' %>
 
 - Any :confirm message you use is now replaced with the ModalBox
 
