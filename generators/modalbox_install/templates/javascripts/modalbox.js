@@ -4,8 +4,8 @@ ModalBox - The pop-up window thingie with AJAX, based on prototype and script.ac
 Copyright Andrey Okonetchnikov (andrej.okonetschnikow@gmail.com), 2006-2007
 All rights reserved.
  
-VERSION 1.6.0
-Last Modified: 12/13/2007
+VERSION 1.6.1
+Last Modified: 04/13/2008
 */
 
 if (!window.Modalbox)
@@ -170,27 +170,33 @@ Modalbox.Methods = {
 	},
 	
 	resize: function(byWidth, byHeight, options) { // Change size of MB without loading content
+		var oWidth = $(this.MBoverlay).getWidth();
 		var wHeight = $(this.MBwindow).getHeight();
 		var wWidth = $(this.MBwindow).getWidth();
 		var hHeight = $(this.MBheader).getHeight();
 		var cHeight = $(this.MBcontent).getHeight();
-		var newHeight = ((wHeight - hHeight + byHeight) < cHeight) ? (cHeight + hHeight - wHeight) : byHeight;
+		var newHeight = ((wHeight - hHeight + byHeight) < cHeight) ? (cHeight + hHeight) : (wHeight + byHeight);
+		var newWidth = wWidth + byWidth;
 		if(options) this.setOptions(options); // Passing callbacks
 		if(this.options.transitions) {
-			new Effect.ScaleBy(this.MBwindow, byWidth, newHeight, {
-					duration: this.options.resizeDuration, 
-				  	afterFinish: function() { 
-						this.event("_afterResize"); // Passing internal callback
-						this.event("afterResize"); // Passing callback
-					}.bind(this)
-				});
+			new Effect.Morph(this.MBwindow, {
+				style: "width:" + newWidth + "px; height:" + newHeight + "px; left:" + ((oWidth - newWidth)/2) + "px",
+				duration: this.options.resizeDuration, 
+				beforeStart: function(fx){
+					fx.element.setStyle({overflow:"hidden"}); // Fix for MSIE 6 to resize correctly
+				},
+				afterFinish: function(fx) {
+					fx.element.setStyle({overflow:"visible"});
+					this.event("_afterResize"); // Passing internal callback
+					this.event("afterResize"); // Passing callback
+				}.bind(this)
+			});
 		} else {
-			this.MBwindow.setStyle({width: wWidth + byWidth + "px", height: wHeight + newHeight + "px"});
+			this.MBwindow.setStyle({width: newWidth + "px", height: newHeight + "px"});
 			setTimeout(function() {
 				this.event("_afterResize"); // Passing internal callback
 				this.event("afterResize"); // Passing callback
 			}.bind(this), 1);
-			
 		}
 		
 	},
@@ -200,7 +206,7 @@ Modalbox.Methods = {
 		// Resizes the modalbox window to the actual content height.
 		// This might be useful to resize modalbox after some content modifications which were changed ccontent height.
 		
-		var byHeight = this.options.height - this.MBwindow.offsetHeight;
+		var byHeight = this.options.height - $(this.MBwindow).getHeight();
 		if(byHeight != 0) {
 			if(options) this.setOptions(options); // Passing callbacks
 			Modalbox.resize(0, byHeight);
@@ -213,7 +219,7 @@ Modalbox.Methods = {
 		// This method might be useful to resize modalbox before including or updating content.
 		
 		var el = $(element);
-		var elHeight = el.getHeight() + parseInt(el.getStyle('margin-top')) + parseInt(el.getStyle('margin-bottom')) + parseInt(el.getStyle('border-top-width')) + parseInt(el.getStyle('border-bottom-width'));
+		var elHeight = el.getHeight() + parseInt(el.getStyle('margin-top'), 0) + parseInt(el.getStyle('margin-bottom'), 0) + parseInt(el.getStyle('border-top-width'), 0) + parseInt(el.getStyle('border-bottom-width'), 0);
 		if(elHeight > 0) {
 			if(options) this.setOptions(options); // Passing callbacks
 			Modalbox.resize(0, elHeight);
@@ -221,11 +227,8 @@ Modalbox.Methods = {
 	},
 	
 	_update: function() { // Updating MB in case of wizards
-		$(this.MBcontent).update("");
-		this.MBcontent.appendChild(this.MBloading);
-		$(this.MBloading).update(this.options.loadingString);
-		this.currentDims = [this.MBwindow.offsetWidth, this.MBwindow.offsetHeight];
-		Modalbox.resize((this.options.width - this.currentDims[0]), (this.options.height - this.currentDims[1]), {_afterResize: this._loadAfterResize.bind(this) });
+		$(this.MBcontent).update($(this.MBloading).update(this.options.loadingString));
+		this.loadContent();
 	},
 	
 	loadContent: function () {
@@ -233,8 +236,7 @@ Modalbox.Methods = {
 			if(typeof this.content == 'string') {
 				var htmlRegExp = new RegExp(/<\/?[^>]+>/gi);
 				if(htmlRegExp.test(this.content)) { // Plain HTML given as a parameter
-					this._insertContent(this.content.stripScripts());
-					this._putContent(function(){
+					this._insertContent(this.content.stripScripts(), function(){
 						this.content.extractScripts().map(function(script) { 
 							return eval(script.replace("<!--", "").replace("// -->", ""));
 						}.bind(window));
@@ -243,8 +245,7 @@ Modalbox.Methods = {
 					new Ajax.Request( this.content, { method: this.options.method.toLowerCase(), parameters: this.options.params, 
 						onSuccess: function(transport) {
 							var response = new String(transport.responseText);
-							this._insertContent(transport.responseText.stripScripts());
-							this._putContent(function(){
+							this._insertContent(transport.responseText.stripScripts(), function(){
 								response.extractScripts().map(function(script) { 
 									return eval(script.replace("<!--", "").replace("// -->", ""));
 								}.bind(window));
@@ -258,7 +259,6 @@ Modalbox.Methods = {
 					
 			} else if (typeof this.content == 'object') {// HTML Object is given
 				this._insertContent(this.content);
-				this._putContent();
 			} else {
 				Modalbox.hide();
 				throw('Modalbox Parameters Error: Please specify correct URL or HTML element (plain HTML or object)');
@@ -266,54 +266,46 @@ Modalbox.Methods = {
 		}
 	},
 	
-	_insertContent: function(content){
+	_insertContent: function(content, callback){
 		$(this.MBcontent).hide().update("");
-		if(typeof content == 'string') {
-			setTimeout(function() { // Hack to disable content flickering in Firefox
-				this.MBcontent.update(content);
-			}.bind(this), 1);
+		if(typeof content == 'string') { // Plain HTML is given
+			this.MBcontent.update(new Element("div", { style: "display: none" }).update(content)).down().show();
 		} else if (typeof content == 'object') { // HTML Object is given
 			var _htmlObj = content.cloneNode(true); // If node already a part of DOM we'll clone it
 			// If clonable element has ID attribute defined, modifying it to prevent duplicates
 			if(content.id) content.id = "MB_" + content.id;
 			/* Add prefix for IDs on all elements inside the DOM node */
 			$(content).select('*[id]').each(function(el){ el.id = "MB_" + el.id; });
-			this.MBcontent.appendChild(_htmlObj);
-			this.MBcontent.down().show(); // Toggle visibility for hidden nodes
+			this.MBcontent.update(_htmlObj).down('div').show();
 			if(Prototype.Browser.IE) // Toggling back visibility for hidden selects in IE
 				$$("#MB_content select").invoke('setStyle', {'visibility': ''});
+		}
+		
+		// Prepare and resize modal box for content
+		if(this.options.height == this._options.height) {
+			Modalbox.resize((this.options.width - $(this.MBwindow).getWidth()), $(this.MBcontent).getHeight() - $(this.MBwindow).getHeight() + $(this.MBheader).getHeight(), {
+				afterResize: function(){
+					setTimeout(function(){ // MSIE fix
+						this._putContent(callback);
+					}.bind(this),1);
+				}.bind(this)
+			});
+		} else { // Height is defined. Creating a scrollable window
+			this._setWidth();
+			this.MBcontent.setStyle({overflow: 'auto', height: $(this.MBwindow).getHeight() - $(this.MBheader).getHeight() - 13 + 'px'});
+			setTimeout(function(){ // MSIE fix
+				this._putContent(callback);
+			}.bind(this),1);
 		}
 	},
 	
 	_putContent: function(callback){
-		// Prepare and resize modal box for content
-		if(this.options.height == this._options.height) {
-			setTimeout(function() { // MSIE sometimes doesn't display content correctly
-				Modalbox.resize(0, $(this.MBcontent).getHeight() - $(this.MBwindow).getHeight() + $(this.MBheader).getHeight(), {
-					afterResize: function(){
-						this.MBcontent.show().makePositioned();
-						this.focusableElements = this._findFocusableElements();
-						this._setFocus(); // Setting focus on first 'focusable' element in content (input, select, textarea, link or button)
-						setTimeout(function(){ // MSIE fix
-							if(callback != undefined)
-								callback(); // Executing internal JS from loaded content
-							this.event("afterLoad"); // Passing callback
-						}.bind(this),1);
-					}.bind(this)
-				});
-			}.bind(this), 1);
-		} else { // Height is defined. Creating a scrollable window
-			this._setWidth();
-			this.MBcontent.setStyle({overflow: 'auto', height: $(this.MBwindow).getHeight() - $(this.MBheader).getHeight() - 13 + 'px'});
-			this.MBcontent.show();
-			this.focusableElements = this._findFocusableElements();
-			this._setFocus(); // Setting focus on first 'focusable' element in content (input, select, textarea, link or button)
-			setTimeout(function(){ // MSIE fix
-				if(callback != undefined)
-					callback(); // Executing internal JS from loaded content
-				this.event("afterLoad"); // Passing callback
-			}.bind(this),1);
-		}
+		this.MBcontent.show();
+		this.focusableElements = this._findFocusableElements();
+		this._setFocus(); // Setting focus on first 'focusable' element in content (input, select, textarea, link or button)
+		if(callback != undefined)
+			callback(); // Executing internal JS from loaded content
+		this.event("afterLoad"); // Passing callback
 	},
 	
 	activate: function(options){
@@ -342,26 +334,20 @@ Modalbox.Methods = {
 		$(this.MBclose).observe("click", this.hideObserver);
 		if(this.options.overlayClose)
 			$(this.MBoverlay).observe("click", this.hideObserver);
-		if(Prototype.Browser.IE)
-			Event.observe(document, "keydown", this.kbdObserver);
+		if(Prototype.Browser.Gecko)
+			Event.observe(document, "keypress", this.kbdObserver); // Gecko is moving focus a way too fast
 		else
-			Event.observe(document, "keypress", this.kbdObserver);
+			Event.observe(document, "keydown", this.kbdObserver); // All other browsers are okay with keydown
 	},
 	
 	_removeObservers: function(){
 		$(this.MBclose).stopObserving("click", this.hideObserver);
 		if(this.options.overlayClose)
 			$(this.MBoverlay).stopObserving("click", this.hideObserver);
-		if(Prototype.Browser.IE)
-			Event.stopObserving(document, "keydown", this.kbdObserver);
-		else
+		if(Prototype.Browser.Gecko)
 			Event.stopObserving(document, "keypress", this.kbdObserver);
-	},
-	
-	_loadAfterResize: function() {
-		this._setWidth();
-		this._setPosition();
-		this.loadContent();
+		else
+			Event.stopObserving(document, "keydown", this.kbdObserver);
 	},
 	
 	_setFocus: function() { 
@@ -477,7 +463,7 @@ Modalbox.Methods = {
 	},
 	
 	_setPosition: function () {
-		$(this.MBwindow).setStyle({left: Math.round((Element.getWidth(document.body) - Element.getWidth(this.MBwindow)) / 2 ) + "px"});
+		$(this.MBwindow).setStyle({left: (($(this.MBoverlay).getWidth() - $(this.MBwindow).getWidth()) / 2 ) + "px"});
 	},
 	
 	_setWidthAndPosition: function () {
@@ -513,61 +499,3 @@ Modalbox.Methods = {
 Object.extend(Modalbox, Modalbox.Methods);
 
 if(Modalbox.overrideAlert) window.alert = Modalbox.alert;
-
-Effect.ScaleBy = Class.create();
-Object.extend(Object.extend(Effect.ScaleBy.prototype, Effect.Base.prototype), {
-  initialize: function(element, byWidth, byHeight, options) {
-    this.element = $(element)
-    var options = Object.extend({
-	  scaleFromTop: true,
-      scaleMode: 'box',        // 'box' or 'contents' or {} with provided values
-      scaleByWidth: byWidth,
-	  scaleByHeight: byHeight
-    }, arguments[3] || {});
-    this.start(options);
-  },
-  setup: function() {
-    this.elementPositioning = this.element.getStyle('position');
-      
-    this.originalTop  = this.element.offsetTop;
-    this.originalLeft = this.element.offsetLeft;
-	
-    this.dims = null;
-    if(this.options.scaleMode=='box')
-      this.dims = [this.element.offsetHeight, this.element.offsetWidth];
-	 if(/^content/.test(this.options.scaleMode))
-      this.dims = [this.element.scrollHeight, this.element.scrollWidth];
-    if(!this.dims)
-      this.dims = [this.options.scaleMode.originalHeight,
-                   this.options.scaleMode.originalWidth];
-	  
-	this.deltaY = this.options.scaleByHeight;
-	this.deltaX = this.options.scaleByWidth;
-  },
-  update: function(position) {
-    var currentHeight = this.dims[0] + (this.deltaY * position);
-	var currentWidth = this.dims[1] + (this.deltaX * position);
-	
-	currentHeight = (currentHeight > 0) ? currentHeight : 0;
-	currentWidth = (currentWidth > 0) ? currentWidth : 0;
-	
-    this.setDimensions(currentHeight, currentWidth);
-  },
-
-  setDimensions: function(height, width) {
-    var d = {};
-    d.width = width + 'px';
-    d.height = height + 'px';
-    
-	var topd  = Math.round((height - this.dims[0])/2);
-	var leftd = Math.round((width  - this.dims[1])/2);
-	if(this.elementPositioning == 'absolute' || this.elementPositioning == 'fixed') {
-		if(!this.options.scaleFromTop) d.top = this.originalTop-topd + 'px';
-		d.left = this.originalLeft-leftd + 'px';
-	} else {
-		if(!this.options.scaleFromTop) d.top = -topd + 'px';
-		d.left = -leftd + 'px';
-	}
-    this.element.setStyle(d);
-  }
-});
