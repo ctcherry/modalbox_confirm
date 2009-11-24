@@ -1,9 +1,8 @@
-
 module ActionView::Helpers::UrlHelper
 	
 	def confirm_javascript_function_with_modalbox(confirm_message, onclick, href = "javascript:function Z(){Z=\'\'}Z()")
 		onclick = onclick.blank? ? '' : " onclick=\\\"#{escape_javascript(onclick)}\\\""
-		"Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(confirm_message)}</p> <a href='#{href}'#{onclick}>Yes</a> or <a href='javascript:none' onclick='Modalbox.hide()'>No</a></div>\", {title: (this.title == '' ? 'Confirm' : this.title), width: 300, autoFocusing: false});"
+		"Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(confirm_message)}</p> <a href='#{href}'#{onclick}>Yes</a> or <a href='javascript:none' onclick='Modalbox.hide()'>No</a></div>\", {title: (this.title == '' ? '#{I18n.t :mb_confirm}' : this.title), width: 300, autoFocusing: false});"
 	end
 	
 	alias_method_chain :confirm_javascript_function, :modalbox
@@ -60,7 +59,7 @@ module ActionView::Helpers::PrototypeHelper
 		function = "#{options[:before]}; #{function}" if options[:before]
 		function = "#{function}; #{options[:after]}"  if options[:after]
 		function = "if (#{options[:condition]}) { #{function}; }" if options[:condition]
-		function = "Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(options[:confirm])}</p> <a id='MB_confirm_yes' href='#' onclick=\\\"Modalbox.hide({afterHide: function() {#{function}}});\\\">Yes</a> or <a href='#' onclick='Modalbox.hide()' id='MB_confirm_no'>No</a></div>\", {title: (this.title == '' ? 'Confirm' : this.title), width: 300, autoFocusing: false})" if options[:confirm]
+		function = "Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(options[:confirm])}</p> <a id='MB_confirm_yes' href='#' onclick=\\\"Modalbox.hide({afterHide: function() {#{function}}});\\\">#{I18n.t :mb_yes}</a> #{I18n.t :mb_or} <a href='#' onclick='Modalbox.hide()' id='MB_confirm_no'>#{I18n.t :mb_no}</a></div>\", {title: (this.title == '' ? '#{I18n.t :mb_confirm}' : this.title), width: 300, autoFocusing: false})" if options[:confirm]
 
 		return function
 	end
