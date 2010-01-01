@@ -1,12 +1,12 @@
 module ActionView::Helpers::UrlHelper
-	
+
 	def confirm_javascript_function_with_modalbox(confirm_message, onclick, href = "javascript:function Z(){Z=\'\'}Z()")
 		onclick = onclick.blank? ? '' : " onclick=\\\"#{escape_javascript(onclick)}\\\""
-		"Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(confirm_message)}</p> <a href='#{href}'#{onclick}>Yes</a> or <a href='javascript:none' onclick='Modalbox.hide()'>No</a></div>\", {title: (this.title == '' ? '#{I18n.t :mb_confirm}' : this.title), width: 300, autoFocusing: false});"
+		"Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(confirm_message)}</p> <a href='#{href}'#{onclick}>#{I18n.t :'modalbox.yes'}</a> #{I18n.t :'modalbox.or'} <a href='javascript:none' onclick='Modalbox.hide()'>#{I18n.t :'modalbox.no'}</a></div>\", {title: (this.title == '' ? '#{I18n.t :'modalbox.confirm'}' : this.title), width: 300, autoFocusing: false});"
 	end
-	
+
 	alias_method_chain :confirm_javascript_function, :modalbox
-	
+
 	def convert_options_to_javascript_with_modalbox!(html_options, url = '')
     confirm, popup = html_options.delete("confirm"), html_options.delete("popup")
 
@@ -31,11 +31,11 @@ module ActionView::Helpers::UrlHelper
   end
 
 	alias_method_chain :convert_options_to_javascript!, :modalbox
-	
+
 end
 
 module ActionView::Helpers::PrototypeHelper
-	
+
 	def remote_function_with_modalbox(options)
 		javascript_options = options_for_ajax(options)
 
@@ -59,11 +59,11 @@ module ActionView::Helpers::PrototypeHelper
 		function = "#{options[:before]}; #{function}" if options[:before]
 		function = "#{function}; #{options[:after]}"  if options[:after]
 		function = "if (#{options[:condition]}) { #{function}; }" if options[:condition]
-		function = "Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(options[:confirm])}</p> <a id='MB_confirm_yes' href='#' onclick=\\\"Modalbox.hide({afterHide: function() {#{function}}});\\\">#{I18n.t :mb_yes}</a> #{I18n.t :mb_or} <a href='#' onclick='Modalbox.hide()' id='MB_confirm_no'>#{I18n.t :mb_no}</a></div>\", {title: (this.title == '' ? '#{I18n.t :mb_confirm}' : this.title), width: 300, autoFocusing: false})" if options[:confirm]
+		function = "Modalbox.show(\"<div class='confirm'><p>#{escape_javascript(options[:confirm])}</p> <a id='MB_confirm_yes' href='#' onclick=\\\"Modalbox.hide({afterHide: function() {#{function}}});\\\">#{I18n.t :'modalbox.yes'}</a> #{I18n.t :'modalbox.or'} <a href='#' onclick='Modalbox.hide()' id='MB_confirm_no'>#{I18n.t :'modalbox.no'}</a></div>\", {title: (this.title == '' ? '#{I18n.t :'modalbox.confirm'}' : this.title), width: 300, autoFocusing: false})" if options[:confirm]
 
 		return function
 	end
 
 	alias_method_chain :remote_function, :modalbox
-	
+
 end
