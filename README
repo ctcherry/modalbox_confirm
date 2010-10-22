@@ -9,7 +9,7 @@ INSTALL
 =======
 
 - Install this plugin
-$ ruby script/plugin install git://github.com/seriph/modalbox_confirm.git
+$ ruby script/plugin install git://github.com/ctcherry/modalbox_confirm.git
 
 - Install the modalbox library
 $ ruby script/generate modalbox_install
