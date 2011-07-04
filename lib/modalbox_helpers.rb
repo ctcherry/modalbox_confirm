@@ -34,6 +34,51 @@ module ActionView::Helpers::UrlHelper
 
 end
 
+module ActionView::Helpers::FormTagHelper
+
+  def submit_tag_with_modalbox(value = "Save changes", options = {})
+    options.stringify_keys!
+
+    if disable_with = options.delete("disable_with")
+      disable_with = "this.value='#{disable_with}'"
+      disable_with << ";#{options.delete('onclick')}" if options['onclick']
+
+      options["onclick"]  = "if (window.hiddenCommit) { window.hiddenCommit.setAttribute('value', this.value); }"
+      options["onclick"] << "else { hiddenCommit = document.createElement('input');hiddenCommit.type = 'hidden';"
+      options["onclick"] << "hiddenCommit.value = this.value;hiddenCommit.name = this.name;this.form.appendChild(hiddenCommit); }"
+      options["onclick"] << "this.setAttribute('originalValue', this.value);this.disabled = true;#{disable_with};"
+      options["onclick"] << "result = (this.form.onsubmit ? (this.form.onsubmit() ? this.form.submit() : false) : this.form.submit());"
+      options["onclick"] << "if (result == false) { this.value = this.getAttribute('originalValue');this.disabled = false; }return result;"
+    end
+
+    if confirm_message = options.delete("confirm")
+      options["onclick"] ||= 'return true;'
+      options["onclick"] = "
+Modalbox.form_button = this;
+#{confirm_javascript_function( confirm_message, "
+  if ((function(){
+    #{options["onclick"]}
+  })()) {
+    hiddenCommit = document.createElement('input');
+    hiddenCommit.type = 'hidden';
+    hiddenCommit.value = Modalbox.form_button.value;
+    hiddenCommit.name = Modalbox.form_button.name;
+    Modalbox.form_button.form.appendChild(hiddenCommit);
+    Modalbox.form_button.form.submit(Modalbox.form_button.form);
+  }
+  return false;", 'javascript:none'
+) };
+return false;
+"
+      #options["onclick"] = "Modalbox.button = this; #{confirm_javascript_function(confirm_message, "if ((function(){ #{options["onclick"]} })()) Modalbox.button.click(); Modalbox.button = undefined; return false;", 'javascript:none')}; return false;"
+    end
+
+    tag :input, { "type" => "submit", "name" => "commit", "value" => value }.update(options.stringify_keys)
+  end
+  alias_method_chain :submit_tag, :modalbox
+
+end
+
 module ActionView::Helpers::PrototypeHelper
 
 	def remote_function_with_modalbox(options)
